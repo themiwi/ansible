@@ -108,6 +108,16 @@ servers:
                     returned: always
                     type: str
                     sample: fully_qualified_domain_name
+                vnet_rules:
+                    description:
+                        - A list of deserialized vnet rule state dictionaries.
+                    returned: always
+                    type: list
+                    sample: [{
+                        'id': '/subscriptions/d7b6a15c-ac12-4c34-bfd6-017db36407c5/resourceGroups/resource_group/providers/Microsoft.Sql/servers/server_name/virtualNetworkRules/vnetrule02',
+                        'name': 'vnetrule01',
+                        'type': 'Microsoft.Sql/servers/virtualNetworkRules',
+                        'virtual_network_subnet_id': '/subscriptions/8511be51-73da-458b-9f51-08b4a1892dc6/resourceGroups/other_resource_group/providers/Microsoft.Network/virtualNetworks/vn01/subnets/sn02'}]
 '''
 
 from ansible.module_utils.azure_rm_common import AzureRMModuleBase
@@ -168,12 +178,13 @@ class AzureRMServersFacts(AzureRMModuleBase):
         try:
             response = self.mgmt_client.servers.get(resource_group_name=self.resource_group,
                                                     server_name=self.server_name)
-            self.log("Response : {0}".format(response))
+            self.log("Response for SQL server : {0}".format(response))
         except CloudError as e:
             self.log('Could not get facts for Servers.')
 
-        if response is not None:
+        if response is not None and vnet_responses is not None:
             results[response.name] = response.as_dict()
+            results[repsonse.name]['vnet_rules'] = [r.as_dict() for r in vnet_responses]
 
         return results
 
@@ -181,7 +192,7 @@ class AzureRMServersFacts(AzureRMModuleBase):
         '''
         Gets facts of the specified SQL Server.
 
-        :return: deserialized SQL Serverinstance state dictionary
+        :return: deserialized SQL Server instance state dictionary
         '''
         response = None
         results = {}
@@ -194,6 +205,26 @@ class AzureRMServersFacts(AzureRMModuleBase):
         if response is not None:
             for item in response:
                 results[item.name] = item.as_dict()
+
+        return results
+
+    def get_vnet_rules(self, server_name):
+        '''
+        Gets facts about the vnet rules for the specified SQL Server.
+
+        :return: list of deserialized vnet rule instance state dictionaries
+        '''
+        responses = None
+        results = []
+        try:
+            responses = self.mgmt_client.virtual_network_rules.list_by_server(self.resource_group,
+                                                                              server_name)
+            self.log("Response for vnet rules : {0}".format(responses))
+        except CloudError as e:
+            self.log('Could not get facts for vnet rules of server {0}.', server_name)
+
+        if responses is not None:
+            results = [r.as_dict() for r in responses]
 
         return results
 
